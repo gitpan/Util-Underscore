@@ -5,7 +5,7 @@ use strict;
 use warnings;
 no warnings 'once';
 
-use version 0.77 (); our $VERSION = version->declare('v1.0.0');
+use version 0.77 (); our $VERSION = version->declare('v1.0.1');
 
 use Scalar::Util    1.36        ();
 use List::Util      1.35        ();
@@ -60,10 +60,17 @@ BEGIN {
 
 *_::is_readonly = \&Scalar::Util::readonly;
 
-sub _::prototype (&;$) {    ## no critic ProhibitSubroutinePrototypes
-    goto &Scalar::Util::set_prototype if @_ == 2;
-    goto &CORE::prototype if @_ == 1;
-    Carp::confess '_::prototype(&;$) takes exactly one or two arguments'
+sub _::prototype ($;$) {    ## no critic ProhibitSubroutinePrototypes
+    if (@_ == 2) {
+        goto &Scalar::Util::set_prototype if @_ == 2;
+    }
+    if (@_ == 1) {
+        my ($coderef) = @_;
+        return prototype $coderef;
+    }
+    else {
+        Carp::confess '_::prototype(&;$) takes exactly one or two arguments';
+    }
 }
 
 *_::is_tainted = \&Scalar::Util::tainted;
@@ -152,7 +159,7 @@ Util::Underscore - Common helper functions without having to import them
 
 =head1 VERSION
 
-version v1.0.0
+version v1.0.1
 
 =head1 SYNOPSIS
 
@@ -253,7 +260,7 @@ wrapper for C<Scalar::Util::openhandle>
 
 wrapper for C<Scalar::Util::readonly>
 
-=item C<_::prototype \&code>
+=item C<$str = _::prototype \&code>
 
 =item C<_::prototype \&code, $new_proto>
 
