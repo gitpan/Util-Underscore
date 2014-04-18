@@ -30,4 +30,4 @@ requires:
 resources:
   bugtracker: https://github.com/latk/Underscore/issues
   repository: git://github.com/latk/Underscore.git
-version: v1.1.0
+version: v1.1.1

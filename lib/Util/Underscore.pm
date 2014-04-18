@@ -5,7 +5,7 @@ package Util::Underscore;
 use strict;
 use warnings;
 
-use version 0.77; our $VERSION = qv('v1.1.0');
+use version 0.77; our $VERSION = qv('v1.1.1');
 
 use Scalar::Util 1.36    ();
 use List::Util 1.35      ();
@@ -348,7 +348,7 @@ Util::Underscore - Common helper functions without having to import them
 
 =head1 VERSION
 
-version v1.1.0
+version v1.1.1
 
 =head1 SYNOPSIS
 
