@@ -22,35 +22,39 @@ my %WriteMakefileArgs = (
   "NAME" => "Util::Underscore",
   "PREREQ_PM" => {
     "Carp" => 0,
+    "Data::Dump" => 0,
     "List::MoreUtils" => "0.07",
     "List::Util" => "1.35",
-    "Safe::Isa" => "1.000000",
     "Scalar::Util" => "1.36",
     "Try::Tiny" => 0,
+    "overload" => 0,
     "strict" => 0,
     "version" => "0.77",
     "warnings" => 0
   },
   "TEST_REQUIRES" => {
     "Test::Exception" => 0,
-    "Test::More" => 0
+    "Test::More" => 0,
+    "Test::Warn" => 0
   },
-  "VERSION" => "v1.0.1",
+  "VERSION" => "v1.1.0",
   "test" => {
-    "TESTS" => "t/*.t t/00_load/*.t"
+    "TESTS" => "t/*.t t/00_load/*.t t/03-references/*.t"
   }
 );
 
 
 my %FallbackPrereqs = (
   "Carp" => 0,
+  "Data::Dump" => 0,
   "List::MoreUtils" => "0.07",
   "List::Util" => "1.35",
-  "Safe::Isa" => "1.000000",
   "Scalar::Util" => "1.36",
   "Test::Exception" => 0,
   "Test::More" => 0,
+  "Test::Warn" => 0,
   "Try::Tiny" => 0,
+  "overload" => 0,
   "strict" => 0,
   "version" => "0.77",
   "warnings" => 0
