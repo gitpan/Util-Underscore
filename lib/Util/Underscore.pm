@@ -1,19 +1,24 @@
 package Util::Underscore;
 
 #ABSTRACT: Common helper functions without having to import them
+#CONTRIBUTOR: Lukas Atkinson (cpan: AMON) <amon@cpan.org>
+#CONTRIBUTOR: Olivier Mengué (cpan: DOLMEN) <dolmen@cpan.org>
 
 use strict;
 use warnings;
 
-use version 0.77; our $VERSION = qv('v1.1.1');
+use version 0.77; our $VERSION = qv('v1.2.0');
+use overload ();
 
-use Scalar::Util 1.36    ();
-use List::Util 1.35      ();
+use Carp ();
+use Const::Fast 0.011    ();
+use Data::Alias 1.18     ();
+use Data::Dump 1.10      ();
 use List::MoreUtils 0.07 ();
-use Carp       ();
-use Try::Tiny  ();
-use Data::Dump ();
-use overload   ();
+use List::Util 1.35      ();
+use POSIX ();
+use Scalar::Util 1.36 ();
+use Try::Tiny 0.03    ();
 
 
 BEGIN {
@@ -24,28 +29,25 @@ BEGIN {
 }
 
 BEGIN {
-    # prevent other "_" packages from being loaded:
-    # Just setting the ${INC} entry would fail too silently,
-    # so we also rigged the "import" method.
-
-    ## no critic (RequireLocalizedPunctuationVars)
-    $INC{'_.pm'} = *_::import = sub {
-        Carp::confess qq(The "_" package is internal to Util::Underscore)
-            . qq(and must not be imported directly.\n);
-    };
+    # Load the dummy "_.pm" module.
+    # This will set up various booby traps so that "_" isn't used directly.
+    # In order to prevent the traps from triggering when *we* go there, we have
+    # to declare our peaceful intentions:
+    local our $_WE_COME_IN_PEACE = 'pinky swear';
+    require _;
 }
 
-my $assign_aliases;
+our $_ASSIGN_ALIASES;
 
 BEGIN {
-    $assign_aliases = sub {
+    $_ASSIGN_ALIASES = sub {
         my ($pkg, %aliases) = @_;
         no strict 'refs';    ## no critic (ProhibitNoStrict)
         while (my ($this, $that) = each %aliases) {
             my $target = "_::${this}";
             my $source = "${pkg}::${that}";
             *{$target} = *{$source}{CODE}
-                // Carp::croak "Unknown subroutine $source in assign_aliases";
+                // Carp::croak "Unknown subroutine $source in _ASSIGN_ALIASES";
         }
     };
 }
@@ -57,221 +59,28 @@ package    # Hide from PAUSE
     _;
 
 ## no critic (RequireArgUnpacking, RequireFinalReturn, ProhibitSubroutinePrototypes)
+#   Why this "no critic"? In an util module, efficiency is crucial because we
+# have no idea about the context where these function are being used. Therefore,
+# no arg unpacking, and no explicit return. Most functions are so trivial anyway
+# that this isn't much of a legibility concern.
+#   Subroutine prototypes are used to offer a convenient and natural interface.
+# I fully understand why they shouldn't be used in ordinary code, but this
+# module puts them to mostly good use.
 
 # Predeclare a few things so that we can use them in the sub definitions below.
 sub blessed(_);
 sub ref_type(_);
 
-
-$assign_aliases->('Scalar::Util', new_dual => 'dualvar',);
-
-sub is_dual(_) {
-    goto &Scalar::Util::isdual;
-}
-
-sub is_vstring(_) {
-    goto &Scalar::Util::isvstring;
-}
-
-sub is_readonly(_) {
-    goto &Scalar::Util::readonly;
-}
-
-sub is_tainted (_) {
-    goto &Scalar::Util::tainted;
-}
-
-sub is_plain(_) {
-    defined $_[0]
-        && !defined ref_type $_[0];
-}
-
-sub is_identifier(_) {
-    defined $_[0]
-        && scalar($_[0] =~ /\A [^\W\d]\w* \z/xsm);
-}
-
-sub is_package(_) {
-    defined $_[0]
-        && scalar($_[0] =~ /\A [^\W\d]\w* (?: [:][:]\w+ )* \z/xsm);
-}
-
-
-sub is_numeric(_) {
-    goto &Scalar::Util::looks_like_number;
-}
-
-sub is_int(_) {
-    ## no critic (ProhibitEnumeratedClasses)
-    defined $_[0]
-        && !defined ref_type $_[0]
-        && scalar($_[0] =~ /\A [-]? [0-9]+ \z/xsm);
-}
-
-sub is_uint(_) {
-    ## no critic (ProhibitEnumeratedClasses)
-    defined $_[0]
-        && !defined ref_type $_[0]
-        && scalar($_[0] =~ /\A [0-9]+ \z/xsm);
-}
-
-
-sub ref_addr(_) {
-    goto &Scalar::Util::refaddr;
-}
-
-sub ref_type(_) {
-    goto &Scalar::Util::reftype;
-}
-
-sub ref_weaken(_) {
-    goto &Scalar::Util::weaken;
-}
-
-sub ref_unweaken(_) {
-    goto &Scalar::Util::unweaken;
-}
-
-sub ref_is_weak(_) {
-    goto &Scalar::Util::isweak;
-}
-
-sub is_ref(_) {
-    defined($_[0])
-        && defined ref_type $_[0]
-        && !defined blessed $_[0];
-}
-
-sub is_scalar_ref(_) {
-    defined($_[0])
-        && ('SCALAR' eq ref $_[0]
-        || overload::Method($_[0], '${}'));
-}
-
-sub is_array_ref(_) {
-    defined($_[0])
-        && ('ARRAY' eq ref $_[0]
-        || overload::Method($_[0], '@{}'));
-}
-
-sub is_hash_ref(_) {
-    defined($_[0])
-        && ('HASH' eq ref $_[0]
-        || overload::Method($_[0], '%{}'));
-}
-
-sub is_code_ref(_) {
-    defined($_[0])
-        && ('CODE' eq ref $_[0]
-        || overload::Method($_[0], '&{}'));
-}
-
-sub is_glob_ref(_) {
-    defined($_[0])
-        && ('GLOB' eq ref $_[0]
-        || overload::Method($_[0], '*{}'));
-}
-
-sub is_regex(_) {
-    defined(blessed $_[0])
-        && ('Regexp' eq ref $_[0]
-        || overload::Method($_[0], 'qr'));
-}
-
-
-sub blessed(_) {
-    goto &Scalar::Util::blessed;
-}
-
-{
-    no warnings 'once';    ## no critic (ProhibitNoWarnings)
-    *class = \&blessed;
-}
-
-sub is_object(_) {
-    defined blessed $_[0];
-}
-
-sub class_isa($$) {
-    is_package($_[0])
-        && $_[0]->isa($_[1]);
-}
-
-sub class_does($$) {
-    is_package($_[0])
-        && $_[0]->DOES($_[1]);
-}
-
-sub class_can($$) {
-    is_package($_[0])
-        && $_[0]->can($_[1]);
-}
-
-sub isa($$) {
-    blessed $_[0]
-        && $_[0]->isa($_[1]);
-}
-
-sub does($$) {
-    blessed $_[0]
-        && $_[0]->DOES($_[1]);
-}
-
-{
-    no warnings 'once';    ## no critic (ProhibitNoWarnings)
-    *is_instance = \&does;
-}
-
-sub can($$) {
-    blessed $_[0]
-        && $_[0]->can($_[1]);
-}
-
-sub safecall($$@) {
-    my $self = shift;
-    my $meth = shift;
-    return if not blessed $self;
-    $self->$meth(@_);
-}
-
-
-$assign_aliases->(
-    'List::Util',
-    reduce    => 'reduce',
-    any       => 'any',
-    all       => 'all',
-    none      => 'none',
-    max       => 'max',
-    max_str   => 'maxstr',
-    min       => 'min',
-    min_str   => 'minstr',
-    sum       => 'sum',
-    product   => 'product',
-    pairgrep  => 'pairgrep',
-    pairfirst => 'pairfirst',
-    pairmap   => 'pairmap',
-    shuffle   => 'shuffle',
-);
-
-$assign_aliases->(
-    'List::MoreUtils',
-    first       => 'first_value',
-    first_index => 'first_index',
-    last        => 'last_value',
-    last_index  => 'last_index',
-    natatime    => 'natatime',
-    uniq        => 'uniq',
-    part        => 'part',
-    each_array  => 'each_arrayref',
-);
-
-sub zip {
-    goto &List::MoreUtils::zip;    # adios, prototypes!
-}
+# load the actual function collections
+use Util::Underscore::Scalars    ();
+use Util::Underscore::Numbers    ();
+use Util::Underscore::References ();
+use Util::Underscore::Objects    ();
+use Util::Underscore::ListUtils  ();
 
 
 BEGIN {
-    $assign_aliases->(
+    $_ASSIGN_ALIASES->(
         'Carp',
         carp    => 'carp',
         cluck   => 'cluck',
@@ -280,7 +89,7 @@ BEGIN {
     );
 }
 
-$assign_aliases->(
+$_ASSIGN_ALIASES->(
     'Try::Tiny',
     try     => 'try',
     catch   => 'catch',
@@ -312,7 +121,7 @@ sub confessf($@) {
 }
 
 
-$assign_aliases->('Scalar::Util', is_open => 'openhandle',);
+$_ASSIGN_ALIASES->('Scalar::Util', is_open => 'openhandle');
 
 sub _::prototype ($;$) {
     if (@_ == 2) {
@@ -323,15 +132,29 @@ sub _::prototype ($;$) {
         return prototype $coderef;    # Calls CORE::prototype
     }
     else {
+        ## no critic (RequireInterpolationOfMetachars)
         Carp::confess '_::prototype($;$) takes exactly one or two arguments';
     }
 }
 
-$assign_aliases->(
+# This sub uses CamelCase because it's a factory function
+sub Dir(@) {    ## no critic (NamingConventions::Capitalization)
+    require Path::Class;
+    Path::Class::Dir->new(@_);
+}
+
+# This sub uses CamelCase because it's a factory function
+sub File(@) {    ## no critic (NamingConventions::Capitalization)
+    require Path::Class;
+    Path::Class::File->new(@_);
+}
+
+$_ASSIGN_ALIASES->(
     'Data::Dump',
     pp => 'pp',
     dd => 'dd',
 );
+
 
 
 1;
@@ -348,7 +171,7 @@ Util::Underscore - Common helper functions without having to import them
 
 =head1 VERSION
 
-version v1.1.1
+version v1.2.0
 
 =head1 SYNOPSIS
 
@@ -361,316 +184,131 @@ version v1.1.1
 This module contains various utility functions, and makes them accessible through the C<_> package.
 This allows the use of these utilities (a) without much per-usage overhead and (b) without namespace pollution.
 
-It contains functions from the following modules:
+It contains selected functions from the following modules:
+L<Carp|Carp>,
+L<Const::Fast|Const::Fast>,
+L<Data::Alias|Data::Alias>,
+L<Data::Dump|Data::Dump>,
+L<List::MoreUtils|List::MoreUtils>,
+L<List::Util|List::Util>,
+L<POSIX|POSIX>,
+L<Scalar::Util|Scalar::Util>,
+L<Try::Tiny|Try::Tiny>.
 
-=over 4
-
-=item *
-
-L<Scalar::Util|Scalar::Util>
-
-=item *
-
-L<List::Util|List::Util>
-
-=item *
-
-L<List::MoreUtils|List::MoreUtils>
-
-=item *
-
-L<Carp|Carp>
-
-=item *
-
-L<Try::Tiny|Try::Tiny>
-
-=back
-
-Not all functions from those are available, and some have been renamed.
+Not all functions from those are available, some have been renamed, and some functions of our own have been added.
 
 =head1 FUNCTION REFERENCE
 
-=head2 Scalars
-
-These functions are about manipulating scalars.
+The function reference is split into separate topics which each have their own documentation:
 
 =over 4
 
-=item C<$scalar = _::new_dual $num, $str>
-
-wrapper for C<Scalar::Util::dualvar>
-
-=item C<$bool = _::is_dual $_>
-
-wrapper for C<Scalar::Util::isdual>
-
-=item C<$bool = _::is_vstring $_>
-
-wrapper for C<Scalar::Util::isvstring>
-
-=item C<$bool = _::is_readonly $_>
-
-wrapper for C<Scalar::Util::readonly>
-
-=item C<$bool = _::is_tainted $_>
-
-wrapper for C<Scalar::Util::tainted>
-
-=item C<$bool = _::is_plain $_>
-
-Checks that the value is C<defined> and not a reference of any kind.
-This is as close as Perl gets to checking for a string.
-
-=item C<$bool = _::is_identifier $_>
-
-Checks that the given string would be a legal identifier:
-a letter followed by zero or more word characters.
-
-=item C<$bool = _::is_package $_>
-
-Checks that the given string is a valid package name.
-It only accepts C<Foo::Bar> notation, not the C<Foo'Bar> form.
-This does not assert that the package actually exists.
-
-=back
-
-=head2 Numbers
-
-=over 4
-
-=item C<$bool = _::is_numeric $_>
-
-wrapper for C<Scalar::Util::looks_like_number>
-
-=item C<$bool = _::is_int $_>
-
-The argument is a plain scalar,
-and its stringification matches a signed integer.
-
-=item C<$bool = _::is_uint $_>
-
-Like C<_::is_int>, but the stringification must match an unsigned integer
-(i.e. the number is zero or positive).
-
-=back
-
-=head2 References
-
-=over 4
-
-=item C<$int = _::ref_addr $_>
-
-wrapper for C<Scalar::Util::refaddr>
-
-=item C<$str = _::ref_type $_>
-
-wrapper for C<Scalar::Util::reftype>
-
-=item C<_::ref_weaken $_>
-
-wrapper for C<Scalar::Util::weaken>
-
-=item C<_::ref_unweaken $_>
-
-wrapper for C<Scalar::Util::unweaken>
-
-=item C<$bool = _::ref_is_weak $_>
-
-wrapper for C<Scalar::Util::isweak>
-
-=back
-
-=head3 Type Validation
-
-These are inspired from C<Params::Util> and C<Data::Util>.
-
-The I<reference validation> routines take one argument (or C<$_>) and return a boolean value.
-They return true when the value is intended to be used as a reference of that kind:
-either C<ref $arg> is of the requested type,
-or it is an overloaded object that can be used as a reference of that kind.
-It will not be checked that an object claims to perform an appropriate role (e.g. C<< $arg->DOES('ARRAY') >>).
-
-=over 4
-
-=item *
-
-C<_::is_ref> (any nonblessed reference)
-
-=item *
-
-C<_::is_scalar_ref>
-
-=item *
-
-C<_::is_array_ref>
-
-=item *
-
-C<_::is_hash_ref>
-
-=item *
-
-C<_::is_code_ref>
-
-=item *
-
-C<_::is_glob_ref>
-
-=item *
-
-C<_::is_regex> (note that regexes are blessed objects, not plain references)
-
-=back
-
-=head2 Classes and Objects
-
-=over 4
-
-=item C<$str = _::blessed $_>
-
-=item C<$str = _::class $_>
-
-wrapper for C<Scalar::Util::blessed>
-
-=item C<$bool = _::is_object $_>
-
-Checks that the argument is a blessed object.
-It's just an abbreviation for C<defined _::blessed $_>
-
-=item C<$bool = _::class_isa $class, $supertype>
-
-Checks that the C<$class> inherits from the given C<$supertype>, both given as strings.
-In most cases, one should use C<_::class_does> instead.
-
-=item C<$bool = _::class_does $class, $role>
-
-Checks that the C<$class> performs the given C<$role>, both given as strings.
-
-=item C<$bool = _::isa $object, $class>
-
-Checks that the C<$object> inherits from the given class.
-In most cases, one should use C<_::does> or C<_::is_instance> instead.
-
-=item C<$code = _::can $object, 'method'>
-
-Checks that the given C<$object> can perform the C<method>.
-Returns C<undef> on failure, or the appropriate code ref on success,
-so that one can do C<< $object->$code(@args) >> afterwards.
-
-=item C<$bool = _::is_instance $object, $role>
-
-=item C<$bool = _::does $object, $role>
-
-Checks that the given C<$object> can perform the C<$role>.
-
-=item C<< any = $maybe_object->_::safecall(method => @args) >>
-
-This will call the C<method> only if the C<$maybe_object> is a blessed object.
-We do not check that the object C<can> perform the method, so this might still raise an exception.
-
-Context is propagated correctly to the method call.
-If the C<$maybe_object> is not an object, this will simply return.
-In scalar context, this evaluates to C<undef>, in list context this is the empty list.
-
-=back
-
-=head2 List::Util and List::MoreUtils
-
-=over 4
-
-=item C<$scalar = _::reduce { BLOCK } @list>
-
-wrapper for C<List::Util::reduce>
-
-=item C<$bool = _::any { PREDICATE } @list>
-
-wrapper for C<List::Util::any>
-
-=item C<$bool = _::all { PREDICATE } @list>
-
-wrapper for C<List::Util::all>
-
-=item C<$bool = _::none { PREDICATE } @list>
-
-wrapper for C<List::Util::none>
-
-=item C<$scalar = _::first { PREDICATE } @list>
-
-wrapper for C<List::MoreUtils::first_value>
-
-=item C<$int = _::first_index { PREDICATE } @list>
-
-wrapper for C<List::MoreUtils::first_index>
-
-=item C<$scalar = _::last { PREDICATE } @list>
-
-wrapper for C<List::MoreUtils::last_value>
-
-=item C<$int = _::last_index { PREDICATE } @list>
-
-wrapper for C<List::MoreUtils::last_index>
-
-=item C<$num = _::max     @list>
-
-=item C<$str = _::max_str @list>
-
-wrappers for C<List::Util::max> and C<List::Util::maxstr>, respectively.
-
-=item C<$num = _::min     @list>
-
-=item C<$str = _::min_str @list>
-
-wrappers for C<List::Util::min> and C<List::Util::minstr>, respectively.
-
-=item C<$num = _::sum 0, @list>
-
-wrapper for C<List::Util::sum>
-
-=item C<$num = _::product @list>
-
-wrapper for C<List::Util::product>
-
-=item C<%kvlist = _::pairgrep { PREDICATE } %kvlist>
-
-wrapper for C<List::Util::pairgrep>
-
-=item C<($k, $v) = _::pairfirst { PREDICATE } %kvlist>
-
-wrapper for C<List::Util::pairfirst>
-
-=item C<%kvlist = _::pairmap { BLOCK } %kvlist>
-
-wrapper for C<List::Util::pairmap>
-
-=item C<@list = _::shuffle @list>
-
-wrapper for C<List::Util::shuffle>
-
-=item C<$iter = _::natatime $size, @list>
-
-wrapper for C<List::MoreUtils::natatime>
-
-=item C<@list = _::zip \@array1, \@array2, ...>
-
-wrapper for C<List::MoreUtils::zip>
-
-Unlike C<List::MoreUtils::zip>, this function directly takes I<array
-references>, and not array variables. It still uses the same implementation.
-This change makes it easier to work with anonymous arrayrefs, or other data that
-isn't already inside a named array variable.
-
-=item C<@list = _::uniq @list>
-
-wrapper for C<List::MoreUtils::uniq>
-
-=item C<@list = _::part { INDEX_FUNCTION } @list>
-
-wrapper for C<List::MoreUtils::part>
-
-=item C<$iter = _::each_array \@array1, \@array2, ...>
-
-wrapper for C<List::MoreUtils::each_arrayref>
+=item Scalars
+
+see L<Util::Underscore::Scalars|Util::Underscore::Scalars>
+
+C<alias>,
+C<const>,
+C<is_dual>,
+C<is_identifier>,
+C<is_package>,
+C<is_plain>,
+C<is_readonly>,
+C<is_string>,
+C<is_bool>,
+C<is_tainted>,
+C<is_vstring>,
+C<new_dual>
+
+=item Numbers
+
+see L<Util::Underscore::Numbers|Util::Underscore::Numbers>
+
+C<ceil>,
+C<floor>,
+C<is_int>,
+C<is_numeric>,
+C<is_uint>
+
+=item References
+
+see L<Util::Underscore::References|Util::Underscore::References>
+
+C<ref_addr>,
+C<ref_is_weak>,
+C<ref_type>,
+C<ref_unweaken>,
+C<ref_weaken>
+
+=item Objects
+
+see L<Util::Underscore::Objects|Util::Underscore::Objects>
+
+C<blessed>,
+C<can>,
+C<class>,
+C<class_does>,
+C<class_isa>,
+C<does>,
+C<is_instance>,
+C<is_object>,
+C<isa>,
+C<safecall>
+
+=item List Utils
+
+see L<Util::Underscore::ListUtils|Util::Underscore::ListUtils>
+
+C<all>,
+C<any>,
+C<each_array>,
+C<first>,
+C<first_index>,
+C<last>,
+C<last_index>,
+C<max>,
+C<max_str>,
+C<min>,
+C<min_str>,
+C<natatime>,
+C<none>,
+C<pairfirst>,
+C<pairgrep>,
+C<pairmap>,
+C<part>,
+C<product>,
+C<reduce>,
+C<shuffle>,
+C<sum>,
+C<uniq>,
+C<zip>
+
+=item Exception handling
+
+see below
+
+C<carp>,
+C<carpf>,
+C<catch>,
+C<cluck>,
+C<cluckf>,
+C<confess>,
+C<confessf>,
+C<croak>,
+C<croakf>,
+C<finally>,
+C<try>
+
+=item Miscellaneous Functions
+
+see below
+
+C<dd>,
+C<Dir>,
+C<File>,
+C<is_open>,
+C<pp>,
+C<prototype>
 
 =back
 
@@ -729,9 +367,13 @@ wrapper for C<Scalar::Util::openhandle>
 
 gets or sets the prototype, wrapping either C<CORE::prototype> or C<Scalar::Util::set_prototype>
 
-=item C<$instance = _::package $str>
+=item C<$dir = _::Dir "foo/bar", "baz">
 
-This will construct a new C<Package::Stash> instance.
+Creates a new L<Path::Class::Dir|Path::Class::Dir> instance.
+
+=item C<$dir = _::File "foo/bar", "baz.txt">
+
+Creates a new L<Path::Class::File|Path::Class::File> instance.
 
 =back
 
@@ -750,25 +392,51 @@ wrapper for C<Data::Dump::dd>.
 
 =back
 
-=head1 RELATED MODULES
+=head1 RATIONALE
 
-The following modules were once considered for inclusion or were otherwise influental in the design of this collection:
+=head4 Context and Package Name
+
+There are a variety of good utility modules like C<Carp> or C<Scalar::Util>.
+I noticed I don't import these (in order to avoid namespace pollution), but rather refer to these functions via their fully qualified names (e.g. C<Carp::carp>).
+This is ultimately annoying and repetitive.
+
+This module populates the C<_> package (a nod to JavaScript's Underscore.js library) with various helpers so that they can be used without having to import them, with a per-usage overhead of only three characters C<_::>.
+The large number of dependencies makes this module somewhat heavyweight, but it avoids the “is C<any> in List::Util or List::MoreUtils”-problem.
+
+In retrospect, choosing the C<_> package name was a mistake:
+A certain part of Perl's infrastructure doesn't recognize C<_> as a valid package name (although Perl itself does).
+More importantly, Perl's filetest operators can use the magic C<_> filehandle which would interfere with this module if it were intended for anything else than fully qualified access to its functions.
+Still, a single underscore is less intrusive than some jumbled letters like C<Ut::any>.
+
+=head4 Scope and Function Naming
+
+This module collects various utility functions that – in my humble opinion – should be part of the Perl language, if the main namespace wouldn't become too crowded as a result.
+Because everything is safely hedged into the C<_> namespace, we can go wild without fearing name collisions.
+However, a few naming conventions were adhered to:
 
 =over 4
 
 =item *
 
-L<Data::Util|Data::Util>
+Functions with a boolean return value start with C<is_>.
 
 =item *
 
-L<Params::Util|Params::Util>
+If the source module already provided a sensible name, it is kept to reduce confusion.
 
 =item *
 
-L<Safe::Isa|Safe::Isa>
+Factory functions that return an object use CamelCase.
 
 =back
+
+=head1 RELATED MODULES
+
+The following modules were once considered for inclusion or were otherwise influental in the design of this collection:
+L<Data::Types|Data::Types>,
+L<Data::Util|Data::Util>,
+L<Params::Util|Params::Util>,
+L<Safe::Isa|Safe::Isa>.
 
 =head1 BUGS
 
@@ -782,6 +450,20 @@ feature.
 =head1 AUTHOR
 
 Lukas Atkinson <amon@cpan.org>
+
+=head2 CONTRIBUTORS
+
+=over 4
+
+=item *
+
+Lukas Atkinson (cpan: AMON) <amon@cpan.org>
+
+=item *
+
+Olivier MenguÃ© (cpan: DOLMEN) <dolmen@cpan.org>
+
+=back
 
 =head1 COPYRIGHT AND LICENSE
 

@@ -4,7 +4,7 @@ author:
   - 'Lukas Atkinson <amon@cpan.org>'
 build_requires:
   Test::Exception: 0
-  Test::More: 0
+  Test::More: 0.94
   Test::Warn: 0
 configure_requires:
   ExtUtils::MakeMaker: 6.30
@@ -17,11 +17,15 @@ meta-spec:
 name: Util-Underscore
 requires:
   Carp: 0
-  Data::Dump: 0
+  Const::Fast: 0.011
+  Data::Alias: 1.18
+  Data::Dump: 1.10
   List::MoreUtils: 0.07
   List::Util: 1.35
+  POSIX: 0
+  Path::Class: 0
   Scalar::Util: 1.36
-  Try::Tiny: 0
+  Try::Tiny: 0.03
   overload: 0
   perl: v5.10.1
   strict: 0
@@ -30,4 +34,4 @@ requires:
 resources:
   bugtracker: https://github.com/latk/Underscore/issues
   repository: git://github.com/latk/Underscore.git
-version: v1.1.1
+version: v1.2.0
