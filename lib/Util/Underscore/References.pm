@@ -124,7 +124,7 @@ Util::Underscore::References - Functions for introspecting and manipulating refe
 
 =head1 VERSION
 
-version v1.2.0_1
+version v1.2.1
 
 =head1 FUNCTION REFERENCE
 

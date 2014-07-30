@@ -7,7 +7,7 @@ package Util::Underscore;
 use strict;
 use warnings;
 
-use version 0.77; our $VERSION = qv('v1.2.0_1');
+use version 0.77; our $VERSION = qv('v1.2.1');
 use overload ();
 
 use Carp ();
@@ -171,7 +171,7 @@ Util::Underscore - Common helper functions without having to import them
 
 =head1 VERSION
 
-version v1.2.0_1
+version v1.2.1
 
 =head1 SYNOPSIS
 

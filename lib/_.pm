@@ -51,7 +51,7 @@ _.pm - do not use this module directly
 
 =head1 VERSION
 
-version v1.2.0_1
+version v1.2.1
 
 =head1 DESCRIPTION
 

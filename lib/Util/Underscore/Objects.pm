@@ -83,7 +83,7 @@ Util::Underscore::Objects - Functions for introspecting and manipulating objects
 
 =head1 VERSION
 
-version v1.2.0_1
+version v1.2.1
 
 =head1 FUNCTION REFERENCE
 
