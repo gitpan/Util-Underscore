@@ -62,7 +62,7 @@ Util::Underscore::ListUtils - Interface to List::Util and List::MoreUtils
 
 =head1 VERSION
 
-version v1.2.0
+version v1.2.0_1
 
 =head1 FUNCTION REFERENCE
 
